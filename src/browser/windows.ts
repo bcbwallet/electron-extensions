@@ -23,6 +23,9 @@ export class WindowsAPI extends EventEmitter implements IWindowsEvents {
     super();
 
     ipcMain.handle('windows.create', (e, details) => this.create(details));
+    ipcMain.handle('windows.update', (e, id, info) => this.update(id, info));
+    ipcMain.handle('windows.remove', (e, id) => this.remove(id));
+
     ipcMain.handle('windows.get', (e, id, details) =>
       id === WINDOW_ID_CURRENT
         ? this.getCurrent(e, details)
@@ -37,6 +40,9 @@ export class WindowsAPI extends EventEmitter implements IWindowsEvents {
     details: chrome.windows.Window,
   ) => void;
   onCreate: (details: chrome.windows.CreateData) => Promise<number>;
+  onUpdate: (id: number, info: chrome.windows.UpdateInfo) => Promise<void>;
+  onRemove: (id: number) => Promise<void>;
+
 
   public observe(window: BrowserWindow) {
     this.windows.add(window);
@@ -59,11 +65,31 @@ export class WindowsAPI extends EventEmitter implements IWindowsEvents {
     if (!this.onCreate) {
       throw new Error('No onCreate event handler');
     }
-
     const id = await this.onCreate(details);
     const win = this.getWindowById(id);
     return this.getDetails(win);
   }
+
+  public async update(
+    id: number,
+    info: chrome.windows.UpdateInfo,
+  ): Promise<chrome.windows.Window> {
+    if (!this.onUpdate) {
+      throw new Error('No onUpdate event handler');
+    }
+    await this.onUpdate(id, info);
+    const win = this.getWindowById(id);
+    return this.getDetails(win);
+  }
+
+  public async remove(
+    id: number,
+  ): Promise<void> {
+    if (!this.onRemove) {
+      throw new Error('No onRemoved event handler');
+    }
+    await this.onRemove(id);
+  }  
 
   public get(
     id: number,
